@@ -56,7 +56,7 @@ A local-first parking lot management system built with Flask and MySQL. Supports
 ### 1. Clone and install dependencies
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/akasajal/dockPoint.git
 cd dockpoint
 pip install flask mysql-connector-python bcrypt python-dotenv
 ```
