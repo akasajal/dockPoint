@@ -202,4 +202,4 @@ MySQL triggers on `records` keep `slots.is_occupied` in sync automatically on in
 
 ## License
 
-MIT
+MIT © [akasajal](https://github.com/akasajal)
