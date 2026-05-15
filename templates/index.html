@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DockPoint</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/index.css"/>
+  <style>
+    @keyframes vsSlideIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <!-- <div class="logo-icon">⌂</div> -->
+    <h1>Dock<span>Point</span></h1>
+    <div class="tag">v1.0 // LOCAL</div>
+  </header>
+
+  <div class="grid">
+    <!-- Slots map -->
+    <div class="card slots-card">
+      <h2>// Parking Slots — click a free slot to select</h2>
+      <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:0.75rem; font-family:'Share Tech Mono',monospace; font-size:0.72rem;">
+        <div style="display:flex; gap:2rem;">
+          <span style="color:var(--green)">■ Regular</span>
+          <span style="color:var(--accent)">■ EV</span>
+          <span style="color:#a050dc">■ Handicapped</span>
+        </div>
+        <div style="display:flex; gap:2rem;">
+          <span style="color:#ca8a04">■ Reserved</span>
+          <span style="color:var(--red)">■ Occupied</span>
+        </div>
+      </div>
+      <button class="refresh-btn" onclick="loadSlots()">↻ Refresh</button>
+      <div id="sys-status" style="
+        float: right;
+        clear: right;
+        margin-bottom: 1rem;
+        margin-top: 0 rem;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.68rem;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+        min-width: 160px;
+      ">
+        <div style="padding:0.3rem 0.65rem; border-bottom:1px solid var(--border); color:var(--muted); letter-spacing:0.12em; font-size:0.6rem; text-transform:uppercase;">
+          ▸ Status
+        </div>
+        <div id="sys-stats" style="display:flex; flex-direction:column;">
+          <!-- filled by updateSysStatus() -->
+        </div>
+        <div style="padding:0.3rem 0.65rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <span id="sys-clock" style="color:var(--text); letter-spacing:0.08em;">00:00:00</span>
+          <span style="color:var(--muted); font-size:0.55rem; letter-spacing:0.1em;">LOCAL</span>
+        </div>
+      </div>
+      <div id="slots-grid"></div>
+    </div>
+
+    <!-- Entry -->
+    <div class="card">
+      <h2>// Vehicle Entry (WALK-IN)</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+        <div class="selected-slot-info" id="selected-slot-label" style="margin-bottom:0">No slot selected</div>
+        <div id="selected-slot-type" style="display:none;font-family:'Share Tech Mono',monospace;font-size:0.72rem;padding:0.2rem 0.55rem;border-radius:3px;border:1px solid;font-weight:bold;"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:0.75rem;align-items:flex-end;">
+        <div class="field-group">
+          <label class="select-label">Vehicle Number</label>
+          <input type="text" id="assign-vehicle" placeholder="KA01AB1234" oninput="lookupVehicleType()" />
+        </div>
+        <div class="field-group">
+          <label class="select-label">Vehicle Type</label>
+          <!-- auto-detected display -->
+          <div id="assign-vtype-display" style="display:none;align-items:center;gap:0.5rem;height:38px;padding:0 0.75rem;font-family:'Share Tech Mono',monospace;font-size:0.85rem;border:1px solid var(--green);border-radius:3px;background:var(--bg);color:var(--green);">
+            <span id="assign-vtype-label">—</span>
+          </div>
+          <!-- fallback manual selector (unregistered vehicle) -->
+          <select id="assign-vtype" class="vtype-select">
+            <option value="" disabled selected>Choose type</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="select-label" style="visibility:hidden">Action</label>
+          <button id="assign-btn" onclick="assignSlot()" class="assign-btn" disabled style="margin:0;">Assign</button>
+        </div>
+      </div>
+      <div class="msg" id="assign-msg"></div>
+    </div>
+
+    <!-- Vehicle Status -->
+    <div class="card accent2">
+      <h2>// Vehicle Status</h2>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:0.5rem;margin-bottom:0.85rem;">
+        <input type="text" id="release-vehicle" placeholder="KA01AB1234"
+               oninput="this.value=this.value.toUpperCase()"
+               onkeydown="if(event.key==='Enter') fetchVehicleStatus()" />
+        <button onclick="fetchVehicleStatus()" class="fetch-btn">Fetch</button>
+      </div>
+
+      <div id="vs-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+           gap:0.4rem;padding:1.2rem 1rem;border:1px dashed var(--border);border-radius:3px;text-align:center;">
+        <div style="font-size:1.4rem;opacity:0.2;">⬡</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--muted);letter-spacing:0.05em;">
+          Enter a vehicle number to show status
+        </div>
+      </div>
+
+      <div id="vs-card" style="display:none;border:1px solid var(--border);border-radius:3px;overflow:hidden;
+           animation:vsSlideIn 0.2s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;
+             padding:0.75rem 1rem;background:var(--bg);border-bottom:1px solid var(--border);">
+          <span id="vs-number" style="font-family:'Share Tech Mono',monospace;font-size:1rem;
+                font-weight:bold;color:var(--text);letter-spacing:0.06em;">—</span>
+          <span id="vs-badge" class="badge">—</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;">
+          <div style="padding:0.65rem 1rem;border-bottom:1px solid var(--border);border-right:1px solid var(--border);">
+            <div class="select-label" style="margin-bottom:0.25rem;">Slot</div>
+            <div id="vs-slot" style="font-family:'Share Tech Mono',monospace;font-size:0.88rem;
+                 font-weight:bold;color:var(--text);">—</div>
+          </div>
+          <div style="padding:0.65rem 1rem;border-bottom:1px solid var(--border);">
+            <div class="select-label" style="margin-bottom:0.25rem;">Vehicle Type</div>
+            <div id="vs-type" style="font-family:'Share Tech Mono',monospace;font-size:0.88rem;
+                 font-weight:bold;color:var(--text);">—</div>
+          </div>
+          <div style="padding:0.65rem 1rem;border-right:1px solid var(--border);">
+            <div class="select-label" style="margin-bottom:0.25rem;">Entry Time</div>
+            <div id="vs-entry" style="font-family:'Share Tech Mono',monospace;font-size:0.82rem;
+                 color:var(--text);">—</div>
+          </div>
+          <div style="padding:0.65rem 1rem;">
+            <div class="select-label" style="margin-bottom:0.25rem;">Duration</div>
+            <div id="vs-duration" style="font-family:'Share Tech Mono',monospace;font-size:0.88rem;
+                 font-weight:bold;color:var(--green);">—</div>
+          </div>
+        </div>
+      </div>
+
+      <button id="vs-release-btn" class="danger" onclick="releaseSlot()"
+              style="display:none;width:100%;margin-top:0.75rem;">⏏ Release Vehicle</button>
+      <div class="msg" id="release-msg"></div>
+    </div>
+
+    <!-- Reservation -->
+    <div class="card reservation-card">
+      <h2>// Or Want To Reserve In Advance?</h2>
+
+      <div class="res-form">
+        <!-- Row 1: Vehicle, Type, Slot -->
+        <div class="res-fields" style="grid-template-columns:1fr 1fr 1fr;">
+          <div class="field-group">
+            <label>Vehicle Number</label>
+            <input type="text" id="res-vehicle" placeholder="KA01AB1234" oninput="lookupVehicleType(); clearResPreview()" />
+          </div>
+          <div class="field-group">
+            <label>Vehicle Type</label>
+            <div id="res-vtype-display" style="display:none;align-items:center;gap:0.5rem;height:38px;padding:0 0.75rem;font-family:'Share Tech Mono',monospace;font-size:0.85rem;border:1px solid var(--green);border-radius:3px;background:var(--bg);color:var(--green);">
+              <span id="res-vtype-label">—</span>
+            </div>
+            <select id="res-vtype" class="vtype-select" onchange="clearResPreview(); previewRes()">
+              <option value="" disabled selected>Choose type</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label>Slot <span style="font-size:0.6rem;opacity:0.6;text-transform:none;letter-spacing:0">(or click grid)</span></label>
+            <input type="text" id="res-slot" placeholder="A5" oninput="clearResPreview()" />
+          </div>
+        </div>
+        <!-- Row 2: Entry, Exit, Reserve -->
+        <div class="res-fields" style="grid-template-columns:1fr 1fr auto; align-items:flex-end;">
+          <div class="field-group">
+            <label>Entry Time</label>
+            <input type="datetime-local" id="res-entry" onchange="previewRes()" />
+          </div>
+          <div class="field-group">
+            <label>Exit Time</label>
+            <input type="datetime-local" id="res-exit" onchange="previewRes()" />
+          </div>
+          <div class="field-group">
+            <label style="visibility:hidden">Action</label>
+            <button id="res-btn" onclick="createReservation()" class="reserve-btn" style="margin:0;">Reserve</button>
+          </div>
+        </div>
+
+        <div class="res-preview" id="res-preview" style="display:none;">
+          <div class="preview-row">
+            <span class="preview-label">Rate</span>
+            <span class="preview-val" id="preview-rate">—</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-label">Duration</span>
+            <span class="preview-val" id="preview-duration">—</span>
+          </div>
+          <div class="preview-row">
+            <span class="preview-label">Billed Hours</span>
+            <span class="preview-val" id="preview-billed">—</span>
+          </div>
+          <div class="preview-row highlight">
+            <span class="preview-label">Amount Due</span>
+            <span class="preview-val accent" id="preview-amount">—</span>
+          </div>
+          <div class="preview-note" id="preview-note">$2.00 / hour · billed per hour (ceil)</div>
+        </div>
+
+        <div class="msg" id="res-msg"></div>
+      </div>
+    </div>
+
+    <!-- Records -->
+    <div class="card records-card">
+      <h2>// All Parking Records</h2>
+      <button class="refresh-btn" onclick="loadRecords()">↻ Refresh</button>
+      <div id="records-container">
+        <div class="empty">No records yet.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="/static/api.js"></script>
+<script src="/static/slots.js"></script>
+<script src="/static/reservations.js"></script>
+<script src="/static/ui.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DockPoint — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/index.css"/>
+  <style>
+    body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 1.5rem; }
+
+    .auth-wrap {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-header {
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      margin-bottom: 2rem;
+    }
+
+    .auth-header h1 { font-size: 1.7rem; }
+
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .auth-card::before {
+      content: '';
+      display: block;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+    }
+
+    /* tab switcher */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 0.9rem;
+      background: none;
+      border: none;
+      border-radius: 0;
+      color: var(--muted);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: color 0.2s, background 0.2s;
+      opacity: 1;
+    }
+
+    .tab:hover { color: var(--text); background: rgba(0,0,0,0.03); }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      margin-bottom: -1px;
+    }
+
+    /* form body */
+    .auth-body { padding: 1.6rem; }
+
+    .form-panel { display: none; flex-direction: column; gap: 1rem; }
+    .form-panel.active { display: flex; }
+
+    .field-group { display: flex; flex-direction: column; gap: 0.35rem; }
+
+    .field-group label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .field-group input { width: 100%; }
+
+    .hint {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-top: -0.4rem;
+    }
+
+    .submit-btn {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      margin-top: 0.25rem;
+    }
+
+    .auth-msg {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      min-height: 1.1rem;
+      color: var(--green);
+      text-align: center;
+    }
+
+    .auth-msg.err { color: var(--red); }
+  </style>
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-header">
+    <div class="logo-icon">P</div>
+    <h1>Dock<span>Point</span></h1>
+  </div>
+
+  <div class="auth-card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Login</button>
+      <button class="tab"        onclick="switchTab('register')">Register</button>
+    </div>
+
+    <div class="auth-body">
+
+      <!-- LOGIN -->
+      <div class="form-panel active" id="panel-login">
+        <div class="field-group">
+          <label>Email or Phone</label>
+          <input type="text" id="login-id" placeholder="you@example.com or 9876543210" autocomplete="username"/>
+        </div>
+        <div class="field-group">
+          <label>Password</label>
+          <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"
+                 onkeydown="if(event.key==='Enter') doLogin()"/>
+        </div>
+        <button class="submit-btn" onclick="doLogin()">Login →</button>
+        <div class="auth-msg" id="login-msg"></div>
+        <div style="text-align:center; margin-top:0.5rem;">
+          <button onclick="doGuest()" style="background:transparent; border:1px solid var(--border); color:var(--muted); font-size:0.78rem; padding:0.5rem 1.2rem; width:100%; font-family:'Share Tech Mono',monospace; font-weight:400; letter-spacing:0.05em;">
+            Continue as Guest (no account needed)
+          </button>
+        </div>
+      </div>
+
+      <!-- REGISTER -->
+      <div class="form-panel" id="panel-register">
+        <div class="field-group">
+          <label>Full Name</label>
+          <input type="text" id="reg-name" placeholder="Jane Doe"/>
+        </div>
+        <div class="field-group">
+          <label>Email <span style="opacity:.5">(optional if phone given)</span></label>
+          <input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email"/>
+        </div>
+        <div class="field-group">
+          <label>Phone <span style="opacity:.5">(optional if email given)</span></label>
+          <input type="tel" id="reg-phone" placeholder="9876543210"/>
+        </div>
+        <div class="field-group">
+          <label>Password</label>
+          <input type="password" id="reg-pw" placeholder="min 6 characters" autocomplete="new-password"
+                 onkeydown="if(event.key==='Enter') doRegister()"/>
+        </div>
+        <button class="submit-btn" onclick="doRegister()">Create Account →</button>
+        <div class="auth-msg" id="reg-msg"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchTab(tab) {
+    document.querySelectorAll('.tab').forEach((t, i) =>
+      t.classList.toggle('active', (i === 0) === (tab === 'login'))
+    );
+    document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+    document.getElementById('panel-register').classList.toggle('active', tab === 'register');
+  }
+
+  async function doGuest() {
+    await fetch('/auth/guest', { method: 'POST' });
+    window.location.href = '/';
+  }
+
+  async function doLogin() {
+    const msg = document.getElementById('login-msg');
+    msg.className = 'auth-msg';
+    msg.textContent = 'Logging in…';
+
+    const res  = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identifier: document.getElementById('login-id').value.trim(),
+        password:   document.getElementById('login-pw').value,
+      }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.textContent = data.message;
+      setTimeout(() => window.location.href = '/', 600);
+    } else {
+      msg.className   = 'auth-msg err';
+      msg.textContent = data.error;
+    }
+  }
+
+  async function doRegister() {
+    const msg = document.getElementById('reg-msg');
+    msg.className = 'auth-msg';
+    msg.textContent = 'Creating account…';
+
+    const res  = await fetch('/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        owner_name:   document.getElementById('reg-name').value.trim(),
+        email:        document.getElementById('reg-email').value.trim(),
+        phone_number: document.getElementById('reg-phone').value.trim(),
+        password:     document.getElementById('reg-pw').value,
+      }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      msg.textContent = data.message;
+      setTimeout(() => window.location.href = '/', 600);
+    } else {
+      msg.className   = 'auth-msg err';
+      msg.textContent = data.error;
+    }
+  }
+</script>
+</body>
+</html>

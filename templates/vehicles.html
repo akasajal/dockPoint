@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DockPoint — My Vehicles</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/index.css"/>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-icon" onclick="location.href='/'" style="cursor:pointer">P</div>
+    <h1 onclick="location.href='/'" style="cursor:pointer">Dock<span>Point</span></h1>
+    <div id="header-nav"></div>
+  </header>
+
+  <div style="max-width:640px;">
+    <div class="card">
+      <h2>// My Vehicles</h2>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:0.75rem;align-items:flex-end;margin-bottom:0.75rem;margin-top:0.5rem;">
+        <div class="field-group">
+          <label class="select-label">Vehicle Number</label>
+          <input type="text" id="mv-number" placeholder="KA01AB1234"/>
+        </div>
+        <div class="field-group">
+          <label class="select-label">Vehicle Type</label>
+          <select id="mv-vtype" class="vtype-select">
+            <option value="" disabled selected>Choose type</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="select-label" style="visibility:hidden">Add</label>
+          <button onclick="addVehicle()" style="margin:0;">+ Add Vehicle</button>
+        </div>
+      </div>
+      <div class="msg" id="mv-msg"></div>
+
+      <div id="mv-list" style="margin-top:1rem;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function init() {
+    const res  = await fetch('/auth/me');
+    const data = await res.json();
+    if (!data.logged_in) { window.location.href = '/login.html'; return; }
+
+    // Inject dropdown nav
+    const initials = data.owner_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('header-nav').innerHTML = `
+      <div class="profile-dropdown-wrap">
+        <button class="profile-btn" id="profile-trigger">
+          <div class="avatar">${initials}</div>
+          ${data.owner_name} <span class="pd-arrow">▾</span>
+        </button>
+        <div class="profile-dropdown" id="profile-dropdown">
+          <a class="pd-item" href="/profile.html">⛶&nbsp; My Profile</a>
+          <a class="pd-item" href="/vehicles.html">⛟&nbsp; My Vehicles</a>
+          <div class="pd-divider"></div>
+          <button class="pd-item pd-item-logout" onclick="doLogout()">⏻&nbsp; Logout</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('profile-trigger').addEventListener('click', e => {
+      e.stopPropagation();
+      const dd = document.getElementById('profile-dropdown');
+      dd.classList.toggle('open');
+      document.querySelector('.pd-arrow').textContent = dd.classList.contains('open') ? '▴' : '▾';
+    });
+    document.addEventListener('click', () => {
+      document.getElementById('profile-dropdown')?.classList.remove('open');
+      const arr = document.querySelector('.pd-arrow');
+      if (arr) arr.textContent = '▾';
+    });
+    document.getElementById('profile-dropdown').addEventListener('click', e => e.stopPropagation());
+
+    // Load vehicle types
+    const vtr = await fetch('/vehicle-types');
+    const vts = await vtr.json();
+    const sel = document.getElementById('mv-vtype');
+    sel.innerHTML = `<option value="" disabled selected>Choose type</option>` +
+      vts.map(vt => `<option value="${vt.id}">${vt.type_name} — $${vt.hourly_rate.toFixed(2)}/hr</option>`).join('');
+
+    loadVehicles();
+  }
+
+  async function loadVehicles() {
+    const res  = await fetch('/owner/vehicles');
+    const data = await res.json();
+    const list = document.getElementById('mv-list');
+
+    if (!data.length) {
+      list.innerHTML = '<div class="empty">No vehicles registered yet.</div>';
+      return;
+    }
+
+    list.innerHTML = `
+      <table>
+        <thead>
+          <tr><th>Vehicle Number</th><th>Type</th><th>Rate</th><th></th></tr>
+        </thead>
+        <tbody>
+          ${data.map(v => `
+            <tr>
+              <td style="font-weight:bold;font-family:'Share Tech Mono',monospace;">${v.vehicle_number}</td>
+              <td style="color:var(--muted)">${v.type_name}</td>
+              <td style="color:#7c3aed;font-family:'Share Tech Mono',monospace;">$${v.hourly_rate.toFixed(2)}/hr</td>
+              <td>
+                <button class="danger" onclick="removeVehicle('${v.vehicle_number}')"
+                  style="font-size:0.72rem;padding:0.3rem 0.7rem;">✕ Remove</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  async function addVehicle() {
+    const number = document.getElementById('mv-number').value.trim().toUpperCase();
+    const vtId   = document.getElementById('mv-vtype').value;
+    const msg    = document.getElementById('mv-msg');
+
+    if (!number) { msg.textContent = 'Enter vehicle number.'; msg.className = 'msg err'; return; }
+    if (!vtId)   { msg.textContent = 'Select vehicle type.';  msg.className = 'msg err'; return; }
+
+    const res  = await fetch('/owner/vehicles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vehicle_number: number, vehicle_type_id: parseInt(vtId) }),
+    });
+    const data = await res.json();
+    msg.textContent = data.message || data.error;
+    msg.className   = res.ok ? 'msg' : 'msg err';
+    if (res.ok) { document.getElementById('mv-number').value = ''; loadVehicles(); }
+  }
+
+  async function removeVehicle(vehicleNumber) {
+    const msg = document.getElementById('mv-msg');
+    const res = await fetch(`/owner/vehicles/${vehicleNumber}`, { method: 'DELETE' });
+    const data = await res.json();
+    msg.textContent = data.message || data.error;
+    msg.className   = res.ok ? 'msg' : 'msg err';
+    if (res.ok) loadVehicles();
+  }
+
+  async function doLogout() {
+    await fetch('/auth/logout', { method: 'POST' });
+    window.location.href = '/login.html';
+  }
+
+  init();
+</script>
+</body>
+</html>

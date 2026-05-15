@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DockPoint — My Profile</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/static/index.css"/>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-icon" onclick="location.href='/'" style="cursor:pointer">P</div>
+    <h1 onclick="location.href='/'" style="cursor:pointer">Dock<span>Point</span></h1>
+    <div id="header-nav"></div>
+  </header>
+
+  <div style="max-width:520px;">
+    <div class="card" style="margin-bottom:1.5rem;">
+      <h2>// My Profile</h2>
+      <div style="display:flex;flex-direction:column;gap:0.9rem;margin-top:0.5rem;">
+        <div class="field-group">
+          <label class="select-label">Full Name</label>
+          <input type="text" id="p-name" placeholder="Jane Doe"/>
+        </div>
+        <div class="field-group">
+          <label class="select-label">Email</label>
+          <input type="email" id="p-email" placeholder="you@example.com"/>
+        </div>
+        <div class="field-group">
+          <label class="select-label">Phone</label>
+          <input type="tel" id="p-phone" placeholder="9876543210"/>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:0.9rem;">
+          <div class="select-label" style="margin-bottom:0.5rem;">Change Password <span style="opacity:0.5;text-transform:none;letter-spacing:0">(leave blank to keep current)</span></div>
+          <div style="display:flex;flex-direction:column;gap:0.5rem;">
+            <input type="password" id="p-pw" placeholder="New password (min 6 chars)"/>
+            <input type="password" id="p-pw2" placeholder="Confirm new password"/>
+          </div>
+        </div>
+        <button onclick="saveProfile()" style="align-self:flex-start;">Save Changes</button>
+        <div class="msg" id="p-msg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function init() {
+    const res  = await fetch('/auth/me');
+    const data = await res.json();
+    if (!data.logged_in) { window.location.href = '/login.html'; return; }
+
+    // Inject dropdown nav
+    const initials = data.owner_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+    document.getElementById('header-nav').innerHTML = `
+      <div class="profile-dropdown-wrap">
+        <button class="profile-btn" id="profile-trigger">
+          <div class="avatar">${initials}</div>
+          ${data.owner_name} <span class="pd-arrow">▾</span>
+        </button>
+        <div class="profile-dropdown" id="profile-dropdown">
+          <a class="pd-item" href="/profile.html">⛶&nbsp; My Profile</a>
+          <a class="pd-item" href="/vehicles.html">⛟&nbsp; My Vehicles</a>
+          <div class="pd-divider"></div>
+          <button class="pd-item pd-item-logout" onclick="doLogout()">⏻&nbsp; Logout</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('profile-trigger').addEventListener('click', e => {
+      e.stopPropagation();
+      const dd = document.getElementById('profile-dropdown');
+      dd.classList.toggle('open');
+      document.querySelector('.pd-arrow').textContent = dd.classList.contains('open') ? '▴' : '▾';
+    });
+    document.addEventListener('click', () => {
+      document.getElementById('profile-dropdown')?.classList.remove('open');
+      const arr = document.querySelector('.pd-arrow');
+      if (arr) arr.textContent = '▾';
+    });
+    document.getElementById('profile-dropdown').addEventListener('click', e => e.stopPropagation());
+
+    // Load owner details
+    const pr = await fetch('/owner/profile');
+    const pd = await pr.json();
+    document.getElementById('p-name').value  = pd.owner_name  || '';
+    document.getElementById('p-email').value = pd.email       || '';
+    document.getElementById('p-phone').value = pd.phone_number|| '';
+  }
+
+  async function saveProfile() {
+    const msg  = document.getElementById('p-msg');
+    const pw   = document.getElementById('p-pw').value;
+    const pw2  = document.getElementById('p-pw2').value;
+
+    if (pw && pw !== pw2) {
+      msg.textContent = 'Passwords do not match.'; msg.className = 'msg err'; return;
+    }
+    if (pw && pw.length < 6) {
+      msg.textContent = 'Password must be at least 6 characters.'; msg.className = 'msg err'; return;
+    }
+
+    const body = {
+      owner_name:   document.getElementById('p-name').value.trim(),
+      email:        document.getElementById('p-email').value.trim(),
+      phone_number: document.getElementById('p-phone').value.trim(),
+    };
+    if (pw) body.password = pw;
+
+    const res  = await fetch('/owner/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    msg.textContent = data.message || data.error;
+    msg.className   = res.ok ? 'msg' : 'msg err';
+    if (res.ok) { document.getElementById('p-pw').value = ''; document.getElementById('p-pw2').value = ''; }
+  }
+
+  async function doLogout() {
+    await fetch('/auth/logout', { method: 'POST' });
+    window.location.href = '/login.html';
+  }
+
+  init();
+</script>
+</body>
+</html>
