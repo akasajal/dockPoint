@@ -61,7 +61,15 @@ cd dockpoint
 pip install flask mysql-connector-python bcrypt python-dotenv
 ```
 
-### 2. Configure environment
+### 2. Create a virtual environment
+
+```bash
+python -m venv venv
+venv\Scripts\activate  # Windows
+source venv/bin/activate  # Mac/Linux
+```
+
+### 3. Configure environment
 
 Copy `.env.example` to `.env` (or create `.env`) and fill in your values:
 
@@ -74,7 +82,7 @@ DB_PASSWORD=your_mysql_password
 DB_NAME=dockpoint
 ```
 
-### 3. Create the database
+### 4. Create the database
 
 ```sql
 CREATE DATABASE dockpoint CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -82,7 +90,7 @@ CREATE DATABASE dockpoint CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 The application creates all tables, triggers, and seed data automatically on first run.
 
-### 4. Run
+### 5. Run
 
 ```bash
 python app.py
